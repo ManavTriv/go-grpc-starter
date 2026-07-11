@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
-	"fmt"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -35,4 +35,26 @@ func (s *server) CreateUser(ctx context.Context, req *userpb.CreateUserRequest) 
 	}
 	s.users[id] = user
 	return user, nil
+}
+
+func main() {
+	lis, err := net.Listen("tcp", ":50051")
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+
+	s := grpc.NewServer()
+	
+	// Create our server instance, with an empty map ready to store users
+	myServer := &server{
+		users: make(map[string]*userpb.User),
+	}
+	// Tell the gRPC server to route UserService requests to myServer
+	userpb.RegisterUserServiceServer(s, myServer)
+
+	log.Println("Server listening on :50051")
+	err = s.Serve(lis)
+	if err != nil {
+		log.Fatalf("failed to serve: %v", err)
+	}
 }
