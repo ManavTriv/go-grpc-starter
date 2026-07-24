@@ -1,12 +1,12 @@
 # go-grpc-starter
 
-A very small gRPC service in Go, built to learn the fundamentals of gRPC and Protocol Buffers. It's a skeleton with an in-memory `UserService` with `CreateUser` and `GetUser` methods.
+A very small gRPC service in Go, built to learn the fundamentals of gRPC and Protocol Buffers. It's a skeleton with a `UserService` containing `CreateUser` and `GetUser` (all in memory).
 
 ---
 
 ## What it does
 
-A client calls a server over the network to create and fetch users (stored in an in-memory Go map)
+A client calls a server over the network to create and fetch users, stored in a Go map.
 
 ```
 Created user: id:"user-1"  name:"John Doe"  email:"john.doe@example.com"
@@ -15,17 +15,17 @@ Fetched user: id:"user-1"  name:"John Doe"  email:"john.doe@example.com"
 
 ---
 
-## gRPC? protobuf?
+## gRPC and protobuf
 
-**gRPC** is a framework for calling methods on another service over a network, as if they were local function calls. It's commonly used for service-to-service communication inside a large enterprise (rather than public-facing APIs), where speed and type-safety matter the most.
+**gRPC** lets you call methods on another service over a network as if they were local function calls. It's mostly used for service-to-service communication inside a company, rather than public-facing APIs, where speed and type safety matter more than readability.
 
-**Protocol Buffers (protobuf)** is the binary data format and interface definition language gRPC is built on. You define your service's methods and data structures once, in a `.proto` file, and a compiler generates matching client and server code from it (not only for Go).
+**Protocol Buffers (protobuf)** is the binary format and interface definition language gRPC is built on. You define your service's methods and data structures once in a `.proto` file, and a compiler generates matching client and server code from it.
 
 ---
 
-## How gRPC works in this context
+## How it works here
 
-**1. Define a contract** — [`proto/user.proto`](proto/user.proto) declares the service's methods and message shapes:
+**1. Define the contract** — [`proto/user.proto`](proto/user.proto) declares the service's methods and message shapes:
 
 ```proto
 service UserService {
@@ -40,11 +40,11 @@ message User {
 }
 ```
 
-This file doesnt have any logic, it only defines the shape of the data and the names of the methods. Note the field numbers (`= 1`, `= 2`, `= 3`) arent the actual values, but rather they are identifiers used in the binary encoding. Once used in a real system they should never be reused (they should be retired), even if the field is later removed.
+Contains no logic but only just the shape of the data and the method names. The numbers (`= 1`, `= 2`, `= 3`) aren't values but are field identifiers used in the binary encoding. Once a field number's used in a real system, it should never be reused.
 
-**2. Generate code from it** — `protoc` reads `user.proto` and generates [`gen/userpb/user.pb.go`](gen/userpb/user.pb.go) (message structs) and [`gen/userpb/user_grpc.pb.go`](gen/userpb/user_grpc.pb.go) (service interface + client stub). Nothing in `gen/` is hand-written. Regenerate it any time the proto changes, don't edit it directly.
+**2. Generate code from it** — `protoc` reads `user.proto` and outputs [`gen/userpb/user.pb.go`](gen/userpb/user.pb.go) (message structs) and [`gen/userpb/user_grpc.pb.go`](gen/userpb/user_grpc.pb.go) (service interface and client stub). Nothing in `gen/` is hand-written. Regenerate it whenever the proto changes but don't touch it directly.
 
-**3. Implement the server** — [`server/main.go`](server/main.go) defines a `server` struct that implements the generated `UserServiceServer` interface:
+**3. Implement the server** — [`server/main.go`](server/main.go) has a `server` struct implementing the generated `UserServiceServer` interface:
 
 ```go
 func (s *server) GetUser(ctx context.Context, req *userpb.GetUserRequest) (*userpb.User, error) {
@@ -56,9 +56,9 @@ func (s *server) GetUser(ctx context.Context, req *userpb.GetUserRequest) (*user
 }
 ```
 
-It embeds `userpb.UnimplementedUserServiceServer`, which provides the default implementations for every method in the interface. This means if the proto file gains a new method later, existing code still compiles. The new method just returns an "unimplemented" error until you actually write it.
+It embeds `userpb.UnimplementedUserServiceServer`. This means if the proto gains a new method later and you haven't written it yet, your code still compilest. The new method just returns an "unimplemented" error until you get around to it, instead of breaking the build.
 
-**4. Call it from a client** — [`client/main.go`](client/main.go) connects and calls those same methods as if they were local functions:
+**4. Call it from a client** — [`client/main.go`](client/main.go) connects and calls those methods like they're local functions:
 
 ```go
 newUser, err := client.CreateUser(ctx, &userpb.CreateUserRequest{
@@ -67,27 +67,27 @@ newUser, err := client.CreateUser(ctx, &userpb.CreateUserRequest{
 })
 ```
 
-The request is serialised to binary, sent over HTTP/2 (TCP), deserialised on the server, routed to `CreateUser`, and the response makes the same journey back. All of which is handled by the generated code.
+What happens under the hood is that the request gets serialised to binary, sent over HTTP/2, then deserialised on the server, and routed to `CreateUser`, and the response makes the same trip back. This is all done by the generated code
 
-**Why not REST/JSON here:** with REST there's no compile time guarantee the client's request shape matches what the server expects. This means that mismatches surface at runtime. Here, both sides are generated from the same `.proto` file, so mismatches are usually caught at build time instead.
+**Difference between REST/JSON:** with REST, nothing guarantees at compile time that the client's request shape matches what the server expects. You only know when you run if something went wrong. Here both sides are generated from the same `.proto` file, so mismatches usually get caught when you build.
 
 ---
 
-## Important notes
+## A few things worth knowing
 
-- **Field numbers are permanent.** If you remove a field, mark it `reserved` so its never accidentally reused:
+- **Field numbers are forever.** Delete a field, mark its number `reserved` so nobody accidentally reuses it later:
   ```proto
   reserved 3;
   reserved "email";
   ```
-- **Fields are implicitly optional in proto3**, and by default there's no way to tell "never set" apart from "set to empty/zero." Mark a field `optional` if that distinction matters (it changes the generated Go field into a pointer).
-- **Pointers:** every generated message type is used as a pointer (`*userpb.User`, `*userpb.CreateUserRequest`) rather than a value, to avoid copying potentially large structs on every call.
+- **Fields are implicitly optional in proto3.** By default there's no way to tell "never set" apart from "set to empty/zero." Mark a field `optional` if that distinction actually matters (it turns the generated Go field into a pointer).
+- **Everything's a pointer.** Message types are passed around as pointers (`*userpb.User`, `*userpb.CreateUserRequest`) rather than values, so you're not copying potentially large structs on every call.
 
 ---
 
-## Real usecase 
+## How this looks in a real system
 
-Client and server are usually separate services owned by separate teams. One team owns and runs the server (e.g. an authorisation service exposing `IsAuthorised(userID, resource, action)`). Other teams across the company are clients of it, each generating their own client code from the same shared `.proto` file, regardless of what language their own service is written in.
+Client and server are usually owned by different teams. One team runs the server which might be an authorisation service exposing `IsAuthorised(userID, resource, action)`. Everyone else across the company is a client of it, generating their own client code from the same shared `.proto` file, regardless of what language their service is written in.
 
 ---
 
@@ -113,7 +113,7 @@ go mod tidy
 
 ---
 
-## Generating/regnerating code after changes to `user.proto`
+## Regenerating code after changing `user.proto`
 
 ```bash
 protoc --go_out=gen/userpb --go_opt=paths=source_relative \
@@ -123,9 +123,9 @@ protoc --go_out=gen/userpb --go_opt=paths=source_relative \
 
 ---
 
-## How to run
+## Running it
 
-**Terminal 1 - server:**
+**Terminal 1 — server:**
 ```bash
 go run server/main.go
 ```
@@ -160,9 +160,3 @@ go-grpc-starter/
 ├── go.mod
 └── README.md
 ```
-
----
-
-## Why i made this
-
-A weekend project to understand gRPC and Go fundamentals :)

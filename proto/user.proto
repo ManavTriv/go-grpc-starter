@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package user;
 
-option go_package = "go-grpc-starter/gen/userpb";
+option go_package = "go-grpc-starter/gen/userpb"; // where the generated Go code goes
 
 // UserService defines operations for managing users
 service UserService {
@@ -14,8 +14,8 @@ service UserService {
 }
 
 message User {
-  string id = 1;
-  string name = 2;
+  string id = 1; // numbers are identifiers for binary encoding (not values)
+  string name = 2; // once used in prod, never reuse a number
   string email = 3;
 }
 

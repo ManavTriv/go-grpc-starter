@@ -45,11 +45,11 @@ func main() {
 
 	s := grpc.NewServer()
 	
-	// Create our server instance, with an empty map ready to store users
+	// Create the server instance with an empty user map
 	myServer := &server{
 		users: make(map[string]*userpb.User),
 	}
-	// Tell the gRPC server to route UserService requests to myServer
+	// Tell the gRPC server to send UserService requests to myServer
 	userpb.RegisterUserServiceServer(s, myServer)
 
 	log.Println("Server listening on :50051")
